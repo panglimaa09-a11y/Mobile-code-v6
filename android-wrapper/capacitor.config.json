@@ -1,0 +1,9 @@
+{
+  "appId": "com.mobilecode.editor",
+  "appName": "Mobile Code",
+  "webDir": "../public",
+  "server": {
+    "cleartext": true,
+    "allowNavigation": ["127.0.0.1", "localhost"]
+  }
+}

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <title>Mobile Code Editor v6</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <button id="menuBtn" class="icon">☰</button>
+  <strong>Mobile Code</strong>
+  <span id="fileName">No file</span>
+  <span id="dirty" class="dirty"></span>
+  <button id="installBtn" class="install hidden">Install</button>
+  <button id="connectBtn" class="connect">⚡ Connect</button>
+  <button id="saveBtn" class="primary">Save</button>
+</header>
+
+<main class="app">
+  <aside id="sidebar" class="sidebar">
+    <div class="side-head">
+      <span class="project-title">PROJECT <small id="workspaceLabel">~/workspace</small></span>
+      <div class="side-actions">
+        <button id="newFile" title="New file">＋</button>
+        <button id="importFolder" title="Import folder">📥</button>
+        <button id="workspaceBtn" title="Ganti workspace folder">📂</button>
+        <button id="refresh" title="Refresh">↻</button>
+      </div>
+      <input id="filePicker" type="file" multiple hidden>
+      <input id="folderPicker" type="file" webkitdirectory directory multiple hidden>
+    </div>
+    <div id="tree" class="tree"></div>
+  </aside>
+
+  <section class="workspace">
+    <div id="tabs" class="tabs"></div>
+    <div id="editor"></div>
+
+    <section id="livePanel" class="live-panel">
+      <div class="live-head">
+        <span>LIVE GENERATOR</span>
+        <span class="live-actions">
+          <button id="liveRun">▶ Run</button>
+          <button id="liveRefresh">↻ Refresh</button>
+          <button id="liveNew">＋ HTML</button>
+          <b id="liveStatus">ready</b>
+        </span>
+      </div>
+      <div class="live-body">
+        <iframe id="liveFrame" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
+      </div>
+    </section>
+
+    <section id="terminalPanel" class="terminal-panel">
+      <div class="terminal-head">
+        <span>TERMINAL</span>
+        <span class="terminal-actions">
+          <button id="newTerminal">＋ New Terminal</button>
+          <button id="clearTerminal">Clear</button>
+          <button id="restartTerminal">Reconnect</button>
+          <b id="terminalStatus" class="status connecting">connecting...</b>
+        </span>
+      </div>
+      <div id="terminalTabs" class="terminal-tabs"></div>
+
+      <div id="terminalOutput" class="terminal-output" tabindex="0"></div>
+
+      <div id="terminalKeys" class="terminal-keys" aria-label="Terminal shortcut keys">
+        <button data-key="ESC">ESC</button>
+        <button data-key="CTRL">CTRL</button>
+        <button data-key="ALT">ALT</button>
+        <button data-seq="\t">TAB</button>
+        <button data-seq="\u001b[A">↑</button>
+        <button data-seq="\u001b[B">↓</button>
+        <button data-seq="\u001b[D">←</button>
+        <button data-seq="\u001b[C">→</button>
+        <button data-seq="\u001b[H">HOME</button>
+        <button data-seq="\u001b[F">END</button>
+        <button data-seq="\u001b[5~">PGUP</button>
+        <button data-seq="\u001b[6~">PGDN</button>
+        <button data-seq="\u0003">CTRL+C</button>
+        <button data-seq="\u0004">CTRL+D</button>
+      </div>
+
+      <div class="terminal-input-row">
+        <span class="prompt" id="terminalPrompt">~/workspace $</span>
+        <input id="terminalInput" autocomplete="off" autocapitalize="off"
+               autocorrect="off" spellcheck="false"
+               placeholder="Ketik command lalu Enter...">
+      </div>
+    </section>
+  </section>
+</main>
+
+<div id="dropZone" class="drop-zone">Drop file/folder here to import</div>
+
+<div id="devPanel" class="dev-panel" aria-hidden="true">
+  <div class="dev-panel-card">
+    <div class="dev-head"><strong>Developer Hub</strong><button id="devClose">×</button></div>
+    <div class="dev-tabs">
+      <button data-devtab="connections" class="active">🔌 Connections</button>
+      <button data-devtab="agent">🤖 Agent</button>
+      <button data-devtab="copilot">✨ Copilot</button>
+      <button data-devtab="mcp">🧩 MCP</button>
+      <button data-devtab="plugins">🔌 Plugins</button>
+    </div>
+    <div class="dev-content">
+      <section data-devpanel="connections" class="dev-section active">
+        <h3>Connections</h3><p class="muted">Simpan koneksi AI secara lokal di workspace. API key tidak dikirim ke browser setelah disimpan.</p>
+        <div id="connectionList" class="card-list"></div>
+        <div class="form-grid">
+          <input id="connName" placeholder="Nama · contoh: OpenAI / Local AI">
+          <input id="connBase" placeholder="Base URL · https://api.openai.com/v1">
+          <input id="connModel" placeholder="Model · contoh: gpt-5.6-luna / qwen..."><input id="connKey" type="password" placeholder="API key (opsional untuk local)">
+        </div><button id="saveConnection" class="primary small">+ Simpan koneksi</button>
+      </section>
+      <section data-devpanel="agent" class="dev-section">
+        <h3>Agent</h3><p class="muted">Agent membaca konteks project dan membantu merencanakan perubahan. Perubahan file harus disetujui melalui editor.</p>
+        <select id="agentConnection"></select><textarea id="agentPrompt" placeholder="Contoh: analisis project ini dan jelaskan error yang paling mungkin..."></textarea>
+        <button id="runAgent" class="primary small">▶ Jalankan Agent</button><pre id="agentOutput" class="ai-output"></pre>
+      </section>
+      <section data-devpanel="copilot" class="dev-section">
+        <h3>Copilot</h3><p class="muted">Minta saran kode berdasarkan file yang sedang dibuka.</p>
+        <select id="copilotConnection"></select><textarea id="copilotPrompt" placeholder="Apa yang ingin dibantu?"></textarea>
+        <button id="runCopilot" class="primary small">✨ Suggest</button><pre id="copilotOutput" class="ai-output"></pre>
+      </section>
+      <section data-devpanel="mcp" class="dev-section">
+        <h3>MCP</h3><p class="muted">Daftarkan MCP endpoint untuk dipakai sebagai sumber tools. Koneksi dilakukan dari server Mobile Code.</p>
+        <div id="mcpList" class="card-list"></div>
+        <div class="form-grid"><input id="mcpName" placeholder="Nama MCP"><input id="mcpUrl" placeholder="URL endpoint MCP"><input id="mcpToken" type="password" placeholder="Bearer token (opsional)"></div>
+        <button id="saveMcp" class="primary small">+ Simpan MCP</button> <button id="probeMcp" class="secondary small">Test /tools</button><pre id="mcpOutput" class="ai-output"></pre>
+      </section>
+      <section data-devpanel="plugins" class="dev-section">
+        <h3>Extensions</h3>
+        <p class="muted">Extension system Mobile Code: plugin memiliki manifest, commands, permissions, activation, dan Extension Host sandbox.</p>
+        <div class="dev-actions"><button id="refreshPlugins" class="secondary small">↻ Refresh</button><button id="openPluginHost" class="secondary small">Extension Host</button></div>
+        <h4>Installed Extensions</h4><div id="pluginList" class="card-list"></div>
+        <h4>Marketplace</h4><div id="pluginCatalog" class="card-list"></div>
+        <h4>Commands</h4><div id="pluginCommands" class="card-list"><div class="empty">Aktifkan extension untuk melihat command.</div></div>
+        <iframe id="pluginHostFrame" class="plugin-host-frame" sandbox="allow-scripts" title="Mobile Code Extension Host"></iframe>
+        <pre id="pluginOutput" class="ai-output"></pre>
+      </section>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom">
+  <button id="filesBtn">📁 Files</button>
+  <button id="liveBtn">⚡ Live</button>
+  <button id="terminalBtn">⌨ Terminal</button>
+  <button id="previewBtn">▶ Preview</button>
+  <button id="connectBottom">⚡ Dev</button>
+</nav>
+
+<script src="app.js"></script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});</script>
+<script src="devhub.js"></script>
+</body>
+</html>
