@@ -498,4 +498,10 @@ function startServer(port) {
   });
   server.listen(port, "127.0.0.1", () => console.log(`Mobile Code v6 → http://127.0.0.1:${port}`));
 }
-startServer(PORT);
+// Vercel runs Express as a serverless function and must not call server.listen().
+// Keep the HTTP/WebSocket server for local Termux, but export the Express app for Vercel.
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  startServer(PORT);
+}
