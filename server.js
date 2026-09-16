@@ -10,7 +10,7 @@ const crypto = require("crypto");
 const app = express();
 const server = http.createServer(app);
 const PORT = Number(process.env.PORT || 3010);
-let PROJECT_ROOT = path.resolve(process.env.PROJECT_ROOT || path.join(process.cwd(), "workspace"));
+let PROJECT_ROOT = path.resolve(process.env.PROJECT_ROOT || (process.env.VERCEL ? path.join(os.tmpdir(), "mobile-code-workspace") : path.join(process.cwd(), "workspace")));
 fs.mkdirSync(PROJECT_ROOT, { recursive: true });
 
 function setWorkspaceRoot(input) {
