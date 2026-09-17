@@ -1,0 +1,19 @@
+services:
+  mobile-code:
+    build: .
+    container_name: mobile-code-v6
+    ports:
+      - "3010:3010"
+    volumes:
+      - ./:/workspace
+      - mobile_code_node_modules:/workspace/node_modules
+      - ./workspace:/workspace/workspace
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      PROJECT_ROOT: /workspace/workspace
+    stdin_open: true
+    tty: true
+
+volumes:
+  mobile_code_node_modules:
