@@ -83,6 +83,23 @@
       wrap.appendChild(cards);
       if (typeof window.loadTree === "function") window.loadTree().catch(() => {});
     }
+    if (extra.operations?.length) {
+      const cards = document.createElement("div");
+      cards.className = "ai-result-cards";
+      for (const op of extra.operations) {
+        const card = document.createElement("div");
+        card.className = "ai-result-card changed";
+        if (op.type === "github-push") {
+          const remote = String(op.remote || "");
+          const safeRemote = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(remote) ? remote : "";
+          card.innerHTML = "<span class=\"ai-result-icon\">GIT</span><span><b>" + esc(op.message || "GitHub push selesai") + "</b><small>Branch: " + esc(op.branch || "current") + " · " + (op.stagedFiles?.length || 0) + " file di-commit</small></span>" + (safeRemote ? "<a href=\"" + safeRemote + "\" target=\"_blank\" rel=\"noopener\">Buka ↗</a>" : "");
+        } else {
+          card.innerHTML = "<span class=\"ai-result-icon\">GIT</span><span><b>Status Git</b><small>" + esc(op.status || "Tidak ada output") + "</small></span>";
+        }
+        cards.appendChild(card);
+      }
+      wrap.appendChild(cards);
+    }
     if (extra.usage) {
       const usage = document.createElement("small");
       usage.className = "ai-usage";
@@ -124,8 +141,9 @@
         })
       });
       pending.remove();
-      addMessage("assistant", d.text || "Selesai.", { artifacts: d.artifacts || [], changes: d.changes || [], usage: d.usage, model: d.model });
+      addMessage("assistant", d.text || "Selesai.", { artifacts: d.artifacts || [], changes: d.changes || [], operations: d.operations || [], usage: d.usage, model: d.model });
       if (d.artifacts?.length) setStatus("ZIP berhasil dibuat · siap diunduh", "ok");
+      else if (d.operations?.some(op => op.type === "github-push")) setStatus("GitHub push selesai", "ok");
       else if (d.changes?.length) setStatus(d.changes.length + " file berhasil ditulis", "ok");
       else setStatus("Selesai", "ok");
     } catch (e) {
