@@ -178,7 +178,13 @@ function gitPush(root, commitMessage) {
     commit = runGit(root, ["-c", "user.name=Mobile Code AI", "-c", "user.email=mobile-code-ai@users.noreply.github.com", "commit", "-m", message]);
   }
   const push = runGit(root, ["push", "-u", "origin", "HEAD"]);
-  return { ok: true, statusBefore: status, stagedFiles: staged ? staged.split(/\r?\n/).filter(Boolean) : [], commit, push, message: staged ? "Perubahan di-commit dan di-push." : "Tidak ada perubahan baru; branch saat ini berhasil di-push." };
+  const rawRemote = runGit(root, ["remote", "get-url", "origin"]);
+  const remote = rawRemote
+    .replace(/^https?:\/\/[^/@]+@/i, "https://")
+    .replace(/^git@github\.com:/i, "https://github.com/")
+    .replace(/\.git$/i, "");
+  const branch = runGit(root, ["branch", "--show-current"]);
+  return { ok: true, statusBefore: status, stagedFiles: staged ? staged.split(/\r?\n/).filter(Boolean) : [], commit, push, remote, branch, message: staged ? "Perubahan di-commit dan di-push." : "Tidak ada perubahan baru; branch saat ini berhasil di-push." };
 }
 
 function getConnection(file, id) {
@@ -285,6 +291,7 @@ function registerAiWorkspaceRoutes(app, { getWorkspaceRoot, getConnectionsFile }
       const headers = makeHeaders(c);
       const artifactsMade = [];
       const changes = [];
+      const operations = [];
       let usage = null;
       let finalText = "";
       for (let turn = 0; turn < 7; turn++) {
@@ -309,12 +316,14 @@ function registerAiWorkspaceRoutes(app, { getWorkspaceRoot, getConnectionsFile }
             result = toolResult(name, args, root);
             if (name === "write_file") changes.push({ path: result.path, bytes: result.bytes });
             if (name === "create_zip") artifactsMade.push({ ...result, url: result.url });
+            if (name === "git_push") operations.push({ type: "github-push", ...result });
+            if (name === "git_status") operations.push({ type: "git-status", ...result });
           } catch (e) { result = { ok: false, error: e.message }; }
           messages.push({ role: "tool", tool_call_id: call.id, name, content: JSON.stringify(result).slice(0, 12000) });
         }
       }
       if (!finalText) finalText = "Tools telah dijalankan. Lihat hasil file/arsip di kartu hasil.";
-      res.json({ ok: true, text: finalText, model: model || c.model || "(default provider)", usage, artifacts: artifactsMade, changes });
+      res.json({ ok: true, text: finalText, model: model || c.model || "(default provider)", usage, artifacts: artifactsMade, changes, operations });
     } catch (e) { res.status(400).json({ error: e.message }); }
   });
 }
