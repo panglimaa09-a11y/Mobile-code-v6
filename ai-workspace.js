@@ -281,7 +281,7 @@ function registerAiWorkspaceRoutes(app, { getWorkspaceRoot, getConnectionsFile }
       const lastUser = [...promptMessages].reverse().find(m => m && m.role === "user");
       const latestPrompt = String(lastUser?.content || "").trim();
       if (!latestPrompt) throw new Error("Pesan chat kosong.");
-      const allowPush = /\b(push|push\s+ke\s+github|push\s+github|publish|unggah\s+ke\s+github|commit\s+dan\s+push)\b/i.test(latestPrompt);
+      const allowPush = /\b(push|publish|unggah\s+ke\s+github|commit\s+dan\s+push)\b/i.test(latestPrompt) && !/\b(jangan|jgn|dont|don\x27t|do not|never|tanpa)\b.{0,40}\b(push|publish|github)\b/i.test(latestPrompt);
       const tools = TOOL_DEFS.filter(t => t.function.name !== "git_push" || allowPush);
       const messages = [
         { role: "system", content: "Kamu adalah AI coding agent di Mobile Code. Kamu bekerja pada workspace lokal melalui tools nyata. Periksa file sebelum mengubahnya; gunakan write_file untuk benar-benar menyimpan file. Setelah perubahan, jelaskan file yang dibuat/diubah secara ringkas. Jika pengguna meminta ZIP, panggil create_zip dan berikan hasil unduhan yang dibuat. Jika pengguna secara eksplisit meminta push GitHub, periksa git_status lalu panggil git_push; jangan force-push. Jangan pernah mengklaim aksi selesai jika tool gagal. Jangan menampilkan rahasia, token, .env, .mce, node_modules atau isi file credential. Jawab dalam Bahasa Indonesia kecuali diminta lain. Jika model/provider tidak mendukung tool calls, jelaskan error provider secara jujur." },
