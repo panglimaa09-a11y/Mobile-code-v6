@@ -16,6 +16,7 @@
   <span id="fileName">No file</span>
   <span id="dirty" class="dirty"></span>
   <button id="installBtn" class="install hidden">Install</button>
+  <button id="aiChatBtn" class="connect ai-top-button">🤖 AI Chat</button>
   <button id="connectBtn" class="connect">⚡ Connect</button>
   <button id="saveBtn" class="primary">Save</button>
 </header>
@@ -102,6 +103,7 @@
   <div class="dev-panel-card">
     <div class="dev-head"><strong>Developer Hub</strong><button id="devClose">×</button></div>
     <div class="dev-tabs">
+      <button data-devtab="ai-chat">💬 AI Chat</button>
       <button data-devtab="connections" class="active">🔌 Connections</button>
       <button data-devtab="agent">🤖 Agent</button>
       <button data-devtab="copilot">✨ Copilot</button>
@@ -109,6 +111,19 @@
       <button data-devtab="plugins">🔌 Plugins</button>
     </div>
     <div class="dev-content">
+      <section data-devpanel="ai-chat" class="dev-section">
+        <h3>AI Coding Workspace</h3>
+        <p class="muted">Chat ini memakai model 9Router yang kamu pilih dan tools server lokal untuk membaca/menulis file, membuat ZIP unduhan, serta push GitHub saat diminta secara eksplisit.</p>
+        <div class="ai-chat-controls">
+          <select id="aiChatConnection" aria-label="AI connection"><option value="">Pilih koneksi</option></select>
+          <div class="ai-chat-model-row"><select id="aiChatModel" aria-label="AI model"><option value="">Gunakan model koneksi</option></select><button id="aiChatRefreshModels" class="secondary small">↻ Models</button><button id="aiChatNew" class="secondary small">＋ Baru</button></div>
+        </div>
+        <div id="aiChatMessages" class="ai-chat-messages">
+          <div class="ai-chat-welcome"><div class="ai-chat-orb">✦</div><h3>AI Coding Workspace</h3><p>Hubungkan 9Router, lalu minta AI mengerjakan project sungguhan. File disimpan di workspace aktif; ZIP menghasilkan file unduhan nyata.</p></div>
+        </div>
+        <div class="ai-chat-compose"><textarea id="aiChatPrompt" rows="2" placeholder="Contoh: periksa project, perbaiki bug, buat ZIP, lalu push GitHub…" aria-label="Pesan ke AI"></textarea><button id="aiChatSend" class="primary">Kirim ➤</button></div>
+        <div class="ai-chat-foot"><button id="aiChatOpenConnections" class="secondary small">⚙ Koneksi</button><span id="aiChatStatus" class="ai-chat-status">Siap</span></div>
+      </section>
       <section data-devpanel="connections" class="dev-section active">
         <h3>Connections</h3><p class="muted">Simpan koneksi AI secara lokal di workspace. API key tidak dikirim ke browser setelah disimpan.</p>
         <div id="connectionList" class="card-list"></div>
@@ -153,11 +168,13 @@
   <button id="liveBtn">⚡ Live</button>
   <button id="terminalBtn">⌨ Terminal</button>
   <button id="previewBtn">▶ Preview</button>
+  <button id="aiChatBottom">🤖 AI</button>
   <button id="connectBottom">⚡ Dev</button>
 </nav>
 
 <script src="app.js"></script>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});</script>
 <script src="devhub.js"></script>
+<script src="ai-chat.js"></script>
 </body>
 </html>
