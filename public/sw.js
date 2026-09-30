@@ -1,7 +1,7 @@
-const CACHE = "mobile-code-editor-v6";
+const CACHE = "mobile-code-editor-v6-ai-workspace-1";
 const CORE = [
   "/", "/index.html", "/style.css", "/app.js",
-  "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"
+  "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/devhub.js", "/ai-chat.js"
 ];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE))); self.skipWaiting(); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); self.clients.claim(); });
