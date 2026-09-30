@@ -484,7 +484,8 @@ wss.on("connection", ws => {
       const msg=JSON.parse(raw.toString());
       if(msg.type!=="command"||typeof msg.data!=="string"||!child||child.killed)return;
       const data=msg.data;
-      if(data==="clear"){send("clear");return;}\n      if(data==="\\u0003"){try{child.kill("SIGINT")}catch{};return;}
+      if(data==="clear"){send("clear");return;}
+      if(data==="\u0003"){try{child.kill("SIGINT")}catch{};return;}
       if(data==="exit"){child.stdin.end("exit\n");return;}
       child.stdin.write(data+"\n");
     }catch(e){send("output",`\r\n[Terminal error] ${e.message}\r\n`);}
