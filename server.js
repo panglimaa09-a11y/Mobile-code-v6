@@ -431,10 +431,10 @@ function standaloneCommand(line,state){
       case "rm": { if(!args[0])throw new Error("Path required.");const f=resolveCwd(state.cwd,args[0]);if(f===PROJECT_ROOT)throw new Error("Cannot remove workspace root.");fs.rmSync(f,{recursive:true,force:false});return out("");}
       case "mv": { if(args.length<2)throw new Error("Usage: mv old new");const a=resolveCwd(state.cwd,args[0]),b=resolveCwd(state.cwd,args[1]);fs.mkdirSync(path.dirname(b),{recursive:true});fs.renameSync(a,b);return out("");}
       case "cp": { if(args.length<2)throw new Error("Usage: cp source destination");const a=resolveCwd(state.cwd,args[0]),b=resolveCwd(state.cwd,args[1]);const st=fs.statSync(a);if(st.isDirectory())fs.cpSync(a,b,{recursive:true});else{fs.mkdirSync(path.dirname(b),{recursive:true});fs.copyFileSync(a,b)}return out("");}
-      case "grep": { if(args.length<2)throw new Error("Usage: grep text file");const f=resolveCwd(state.cwd,args.pop());const needle=args.join(" ");const lines=fs.readFileSync(f,"utf8").split(/\\r?\\n/);return out(lines.map((x,i)=>x.toLowerCase().includes(needle.toLowerCase())?`${i+1}:${x}`:null).filter(Boolean).join("\n"));}
+      case "grep": { if(args.length<2)throw new Error("Usage: grep text file");const f=resolveCwd(state.cwd,args.pop());const needle=args.join(" ");const lines=fs.readFileSync(f,"utf8").split(/\r?\n/);return out(lines.map((x,i)=>x.toLowerCase().includes(needle.toLowerCase())?`${i+1}:${x}`:null).filter(Boolean).join("\n"));}
       case "find": { const q=args.join(" ").toLowerCase();return out(walkFiles(PROJECT_ROOT).filter(x=>!q||x.toLowerCase().includes(q)).join("\n"));}
       case "exit": return {exit:true};
-      default: return out(`${cmd}: command not found\\nUse 'help' to see commands available in the workspace fallback.`);
+      default: return out(`${cmd}: command not found\nUse 'help' to see commands available in the workspace fallback.`);
     }
   }catch(e){return {error:e.message};}
 }
@@ -445,7 +445,7 @@ function localShellConfig(){
   }
   const shell=process.env.SHELL || (fs.existsSync("/data/data/com.termux/files/usr/bin/bash")?"/data/data/com.termux/files/usr/bin/bash":"/bin/bash");
   const base=path.basename(shell).toLowerCase();
-  if(base.includes("bash")) return {shell,args:["--noprofile","--norc","-i"],env:{...process.env,PS1:"__MCE_PROMPT__\\w$ ",TERM:process.env.TERM||"xterm-256color"}};
+  if(base.includes("bash")) return {shell,args:["--noprofile","--norc","-i"],env:{...process.env,PS1:"__MCE_PROMPT__ ",TERM:process.env.TERM||"xterm-256color"}};
   if(base.includes("zsh")) return {shell,args:["-f","-i"],env:{...process.env,PS1:"__MCE_PROMPT__%~$ "}};
   return {shell,args:[],env:{...process.env}};
 }
@@ -454,9 +454,9 @@ wss.on("connection", ws => {
   const send=(type,data="")=>{if(ws.readyState===1)ws.send(JSON.stringify({type,data}));};
   if(process.env.VERCEL || process.env.MCE_TERMINAL_MODE==="workspace"){
     send("status","connected");
-    send("output","Mobile Code — workspace-only fallback terminal\\r\\nType 'help' for commands.\\r\\n");
+    send("output","Mobile Code — workspace-only fallback terminal\r\nType 'help' for commands.\r\n");
     send("prompt",displayPath(state.cwd));
-    ws.on("message",raw=>{try{const msg=JSON.parse(raw.toString());if(msg.type!=="command"||typeof msg.data!=="string")return;const result=standaloneCommand(msg.data,state);if(result.clear){send("clear");send("prompt",displayPath(state.cwd));return;}if(result.out)send("output",result.out+"\\r\\n");if(result.error)send("output",`Error: ${result.error}\\r\\n`);send("prompt",displayPath(state.cwd));if(result.exit){send("status","closed");ws.close();}}catch(e){send("output",`Error: ${e.message}\\r\\n`);}});
+    ws.on("message",raw=>{try{const msg=JSON.parse(raw.toString());if(msg.type!=="command"||typeof msg.data!=="string")return;const result=standaloneCommand(msg.data,state);if(result.clear){send("clear");send("prompt",displayPath(state.cwd));return;}if(result.out)send("output",result.out+"\r\n");if(result.error)send("output",`Error: ${result.error}\r\n`);send("prompt",displayPath(state.cwd));if(result.exit){send("status","closed");ws.close();}}catch(e){send("output",`Error: ${e.message}\r\n`);}});
     return;
   }
   let child;
@@ -465,7 +465,7 @@ wss.on("connection", ws => {
     child=spawn(cfg.shell,cfg.args,{cwd:PROJECT_ROOT,env:cfg.env,stdio:["pipe","pipe","pipe"],windowsHide:true});
   }catch(e){send("error",`Gagal membuka shell lokal: ${e.message}`);ws.close();return;}
   send("status","connected");
-  send("output",`Mobile Code — real local shell (${process.platform})\\r\\nWorking directory: ${PROJECT_ROOT}\\r\\n\\r\\n`);
+  send("output",`Mobile Code — real local shell (${process.platform})\r\nWorking directory: ${PROJECT_ROOT}\r\n\r\n`);
   send("prompt",displayPath(PROJECT_ROOT));
   let stdoutBuffer="";
   const emitChunk=(chunk)=>{
@@ -478,16 +478,16 @@ wss.on("connection", ws => {
   child.stdout.on("data",emitChunk);
   child.stderr.on("data",emitChunk);
   child.on("error",e=>send("error",`Shell error: ${e.message}`));
-  child.on("close",(code,signal)=>{send("output",`\\r\\n[Shell exited: code=${code}, signal=${signal||"none"}]\\r\\n`);send("status","closed");send("prompt",displayPath(PROJECT_ROOT));});
+  child.on("close",(code,signal)=>{send("output",`\r\n[Shell exited: code=${code}, signal=${signal||"none"}]\r\n`);send("status","closed");send("prompt",displayPath(PROJECT_ROOT));});
   ws.on("message",raw=>{
     try{
       const msg=JSON.parse(raw.toString());
       if(msg.type!=="command"||typeof msg.data!=="string"||!child||child.killed)return;
       const data=msg.data;
-      if(data==="clear"){send("clear");return;}
-      if(data==="exit"){child.stdin.end("exit\\n");return;}
-      child.stdin.write(data+"\\n");
-    }catch(e){send("output",`\\r\\n[Terminal error] ${e.message}\\r\\n`);}
+      if(data==="clear"){send("clear");return;}\n      if(data==="\\u0003"){try{child.kill("SIGINT")}catch{};return;}
+      if(data==="exit"){child.stdin.end("exit\n");return;}
+      child.stdin.write(data+"\n");
+    }catch(e){send("output",`\r\n[Terminal error] ${e.message}\r\n`);}
   });
   ws.on("close",()=>{if(child&&!child.killed){try{child.kill("SIGTERM")}catch{}}});
 });
