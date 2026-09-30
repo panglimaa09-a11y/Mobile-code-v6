@@ -1,0 +1,23 @@
+name: Mobile Code AI workspace checks
+
+on:
+  push:
+    branches: [feature/9router-ai-workspace-tools]
+  pull_request:
+    branches: [feature/real-multi-terminal]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check server.js
+          node --check ai-workspace.js
+          node --check public/app.js
+          node --check public/devhub.js
+          node --check public/ai-chat.js
