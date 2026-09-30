@@ -23,8 +23,14 @@ npm start
 
 Open the printed localhost address.
 
-## Important runtime scope
-The standalone terminal is intentionally a workspace command runtime, not a full Linux shell. It cannot execute arbitrary Android/Linux processes. Next.js/Vite/Node applications need a separate project runtime before they can be previewed internally.
+## Real multi-terminal (v6.5)
+- Each terminal tab opens an independent local OS shell session.
+- Android/Termux: uses the configured `SHELL` (normally Bash), so commands such as `npm`, `node`, `git`, `python`, `pkg`, and shell scripts run in the actual Termux environment.
+- Windows: uses `cmd.exe`; Linux/macOS: uses the user's configured shell.
+- Terminal tabs can be added and closed independently; commands execute on the machine running the Mobile Code server.
+- On Vercel/serverless or when `MCE_TERMINAL_MODE=workspace` is set, the app falls back to a limited workspace-only command runtime because a persistent OS shell is not available there.
+
+**Security:** the real terminal can access the account and files available to the OS shell. Keep the server bound to localhost and do not expose its port to the internet or an untrusted network. Review commands before running them. This WebSocket terminal is pipe-based, not a full PTY; programs requiring a TTY (for example, some interactive installers, `vim`, or `top`) may not behave correctly.
 
 ## Production/PWA
 Serve over HTTPS for public hosting. The PWA shell is cacheable, but project files are intentionally kept on the local server workspace and are not published to a remote server.
