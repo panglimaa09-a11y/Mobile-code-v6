@@ -445,8 +445,8 @@ function localShellConfig(){
   }
   const shell=process.env.SHELL || (fs.existsSync("/data/data/com.termux/files/usr/bin/bash")?"/data/data/com.termux/files/usr/bin/bash":"/bin/bash");
   const base=path.basename(shell).toLowerCase();
-  if(base.includes("bash")) return {shell,args:["--noprofile","--norc","-i"],env:{...process.env,PS1:"__MCE_PROMPT__ ",TERM:process.env.TERM||"xterm-256color"}};
-  if(base.includes("zsh")) return {shell,args:["-f","-i"],env:{...process.env,PS1:"__MCE_PROMPT__%~$ "}};
+  if(base.includes("bash")) return {shell,args:["--noprofile","--norc"],env:{...process.env,PS1:"",TERM:process.env.TERM||"xterm-256color"}};
+  if(base.includes("zsh")) return {shell,args:["-f"],env:{...process.env,PS1:""}};
   return {shell,args:[],env:{...process.env}};
 }
 wss.on("connection", ws => {
