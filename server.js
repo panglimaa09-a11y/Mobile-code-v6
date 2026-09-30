@@ -363,9 +363,11 @@ app.post("/api/plugins/:id/command",async(req,res)=>{
 app.use("/workspace", (req,res,next) => express.static(PROJECT_ROOT)(req,res,next));
 app.use((req,res) => res.sendFile(path.join(__dirname,"public","index.html")));
 
-// Standalone Mobile Code terminal.
-// IMPORTANT: this is NOT a Termux/Linux shell. Commands are implemented by
-// Mobile Code itself and operate only inside the workspace.
+// Multi-terminal runtime.
+// Local mode uses a real OS shell (Termux bash on Android, PowerShell/cmd on Windows,
+// and the user's shell on Linux/macOS). Each WebSocket gets its own process/session.
+// Vercel remains workspace-only because serverless hosts cannot provide persistent shells.
+// Bind the local server to loopback below; do not expose this terminal to a public network.
 const wss = new WebSocketServer({ noServer:true });
 server.on("upgrade", (request, socket, head) => {
   try {
@@ -414,76 +416,81 @@ function standaloneCommand(line,state){
   try{
     switch(cmd){
       case "": return out("");
-      case "help": return out([
-        "Mobile Code Terminal (standalone)",
-        "Commands:",
-        "  help                 Show this help",
-        "  pwd                  Show current workspace directory",
-        "  ls [-l] [path]       List files/folders",
-        "  cd [path]            Change directory",
-        "  tree [path]          Show project tree",
-        "  cat <file>           Read a text file",
-        "  head <file>          First 20 lines",
-        "  tail <file>          Last 20 lines",
-        "  touch <file>         Create an empty file",
-        "  mkdir <dir>          Create a folder",
-        "  rm <path>             Delete file/folder",
-        "  mv <old> <new>       Rename/move",
-        "  cp <src> <dest>      Copy file/folder",
-        "  echo <text>          Print text",
-        "  grep <text> <file>   Search text",
-        "  find [text]          Find project paths",
-        "  wc <file>            Count lines/words/bytes",
-        "  clear                Clear terminal",
-        "  whoami               Mobile Code",
-        "  uname                Mobile Code Runtime",
-        "  date                 Current date/time",
-        "  exit                 Close terminal session",
-        "",
-        "This terminal is isolated to the Mobile Code workspace."
-      ].join("\n"));
+      case "help": return out("Workspace terminal fallback. Commands: help, pwd, ls, cd, tree, cat, touch, mkdir, rm, mv, cp, echo, grep, find, wc, clear, whoami, date, exit.");
       case "pwd": return out(displayPath(state.cwd));
       case "whoami": return out("mobile-code");
-      case "uname": return out("Mobile-Code-Runtime standalone");
       case "date": return out(new Date().toString());
       case "echo": return out(arg);
       case "clear": return {clear:true};
       case "cd": { const target=args[0] || PROJECT_ROOT; state.cwd=resolveCwd(state.cwd,target); return out(""); }
       case "ls": { let detailed=false; if(args[0]==="-l"||args[0]==="--long"){detailed=true;args.shift();} const d=resolveCwd(state.cwd,args[0]||"."); if(!fs.statSync(d).isDirectory()) throw new Error("Not a directory."); return out(listDir(d,detailed)); }
       case "tree": { const root=resolveCwd(state.cwd,args[0]||"."); const lines=[]; function rec(d,prefix=""){const es=fs.readdirSync(d,{withFileTypes:true}).filter(e=>e.name!==".git"&&e.name!=="node_modules").sort((a,b)=>Number(b.isDirectory())-Number(a.isDirectory())||a.name.localeCompare(b.name)); es.forEach((e,i)=>{const last=i===es.length-1;lines.push(prefix+(last?"└── ":"├── ")+e.name+(e.isDirectory()?"/":""));if(e.isDirectory())rec(path.join(d,e.name),prefix+(last?"    ":"│   "));});} lines.push(path.basename(root)||"workspace"); rec(root); return out(lines.join("\n")); }
-      case "cat": case "head": case "tail": { if(!args[0]) throw new Error("File required."); const f=resolveCwd(state.cwd,args[0]); if(!fs.statSync(f).isFile()) throw new Error("Not a file."); const text=fs.readFileSync(f,"utf8"); if(cmd==="cat") return out(text); const lines=text.split(/\\r?\\n/); return out((cmd==="head"?lines.slice(0,20):lines.slice(-20)).join("\n")); }
-      case "touch": { if(!args[0]) throw new Error("File required."); const f=resolveCwd(state.cwd,args[0]); fs.mkdirSync(path.dirname(f),{recursive:true}); if(!fs.existsSync(f))fs.writeFileSync(f,""); else fs.utimesSync(f,new Date(),new Date()); return out(""); }
-      case "mkdir": { if(!args[0]) throw new Error("Directory required."); fs.mkdirSync(resolveCwd(state.cwd,args[0]),{recursive:true}); return out(""); }
-      case "rm": { if(!args[0]) throw new Error("Path required."); const f=resolveCwd(state.cwd,args[0]); if(f===PROJECT_ROOT)throw new Error("Cannot remove workspace root."); fs.rmSync(f,{recursive:true,force:false}); return out(""); }
-      case "mv": { if(args.length<2)throw new Error("Usage: mv old new"); const a=resolveCwd(state.cwd,args[0]),b=resolveCwd(state.cwd,args[1]); fs.mkdirSync(path.dirname(b),{recursive:true}); fs.renameSync(a,b); return out(""); }
-      case "cp": { if(args.length<2)throw new Error("Usage: cp source destination"); const a=resolveCwd(state.cwd,args[0]),b=resolveCwd(state.cwd,args[1]); const st=fs.statSync(a); if(st.isDirectory())fs.cpSync(a,b,{recursive:true});else{fs.mkdirSync(path.dirname(b),{recursive:true});fs.copyFileSync(a,b)} return out(""); }
-      case "grep": { if(args.length<2)throw new Error("Usage: grep text file"); const f=resolveCwd(state.cwd,args.pop()); const needle=args.join(" "); const lines=fs.readFileSync(f,"utf8").split(/\\r?\\n/); return out(lines.map((x,i)=>x.toLowerCase().includes(needle.toLowerCase())?`${i+1}:${x}`:null).filter(Boolean).join("\n")); }
-      case "find": { const q=args.join(" ").toLowerCase(); const files=walkFiles(PROJECT_ROOT); return out(files.filter(x=>!q||x.toLowerCase().includes(q)).join("\n")); }
-      case "wc": { if(!args[0])throw new Error("File required."); const text=fs.readFileSync(resolveCwd(state.cwd,args[0]),"utf8"); const lines=text?text.split(/\\r?\\n/).length:0, words=(text.match(/\\S+/g)||[]).length, bytes=Buffer.byteLength(text); return out(`${lines} ${words} ${bytes}`); }
+      case "cat": { if(!args[0])throw new Error("File required."); return out(fs.readFileSync(resolveCwd(state.cwd,args[0]),"utf8")); }
+      case "touch": { if(!args[0])throw new Error("File required."); const f=resolveCwd(state.cwd,args[0]);fs.mkdirSync(path.dirname(f),{recursive:true});if(!fs.existsSync(f))fs.writeFileSync(f,"");return out("");}
+      case "mkdir": { if(!args[0])throw new Error("Directory required.");fs.mkdirSync(resolveCwd(state.cwd,args[0]),{recursive:true});return out("");}
+      case "rm": { if(!args[0])throw new Error("Path required.");const f=resolveCwd(state.cwd,args[0]);if(f===PROJECT_ROOT)throw new Error("Cannot remove workspace root.");fs.rmSync(f,{recursive:true,force:false});return out("");}
+      case "mv": { if(args.length<2)throw new Error("Usage: mv old new");const a=resolveCwd(state.cwd,args[0]),b=resolveCwd(state.cwd,args[1]);fs.mkdirSync(path.dirname(b),{recursive:true});fs.renameSync(a,b);return out("");}
+      case "cp": { if(args.length<2)throw new Error("Usage: cp source destination");const a=resolveCwd(state.cwd,args[0]),b=resolveCwd(state.cwd,args[1]);const st=fs.statSync(a);if(st.isDirectory())fs.cpSync(a,b,{recursive:true});else{fs.mkdirSync(path.dirname(b),{recursive:true});fs.copyFileSync(a,b)}return out("");}
+      case "grep": { if(args.length<2)throw new Error("Usage: grep text file");const f=resolveCwd(state.cwd,args.pop());const needle=args.join(" ");const lines=fs.readFileSync(f,"utf8").split(/\r?\n/);return out(lines.map((x,i)=>x.toLowerCase().includes(needle.toLowerCase())?`${i+1}:${x}`:null).filter(Boolean).join("\n"));}
+      case "find": { const q=args.join(" ").toLowerCase();return out(walkFiles(PROJECT_ROOT).filter(x=>!q||x.toLowerCase().includes(q)).join("\n"));}
       case "exit": return {exit:true};
-      default: return out(`${cmd}: command not found\nUse 'help' to see commands available in Mobile Code.`);
+      default: return out(`${cmd}: command not found\nUse 'help' to see commands available in the workspace fallback.`);
     }
-  }catch(e){ return {error:e.message}; }
+  }catch(e){return {error:e.message};}
 }
-
+function localShellConfig(){
+  if(process.platform==="win32"){
+    const shell=process.env.ComSpec||"cmd.exe";
+    return {shell,args:[],env:{...process.env}};
+  }
+  const shell=process.env.SHELL || (fs.existsSync("/data/data/com.termux/files/usr/bin/bash")?"/data/data/com.termux/files/usr/bin/bash":"/bin/bash");
+  const base=path.basename(shell).toLowerCase();
+  if(base.includes("bash")) return {shell,args:["--noprofile","--norc"],env:{...process.env,PS1:"",TERM:process.env.TERM||"xterm-256color"}};
+  if(base.includes("zsh")) return {shell,args:["-f"],env:{...process.env,PS1:""}};
+  return {shell,args:[],env:{...process.env}};
+}
 wss.on("connection", ws => {
   const state={cwd:PROJECT_ROOT};
   const send=(type,data="")=>{if(ws.readyState===1)ws.send(JSON.stringify({type,data}));};
+  if(process.env.VERCEL || process.env.MCE_TERMINAL_MODE==="workspace"){
+    send("status","connected");
+    send("output","Mobile Code — workspace-only fallback terminal\r\nType 'help' for commands.\r\n");
+    send("prompt",displayPath(state.cwd));
+    ws.on("message",raw=>{try{const msg=JSON.parse(raw.toString());if(msg.type!=="command"||typeof msg.data!=="string")return;const result=standaloneCommand(msg.data,state);if(result.clear){send("clear");send("prompt",displayPath(state.cwd));return;}if(result.out)send("output",result.out+"\r\n");if(result.error)send("output",`Error: ${result.error}\r\n`);send("prompt",displayPath(state.cwd));if(result.exit){send("status","closed");ws.close();}}catch(e){send("output",`Error: ${e.message}\r\n`);}});
+    return;
+  }
+  let child;
+  try{
+    const cfg=localShellConfig();
+    child=spawn(cfg.shell,cfg.args,{cwd:PROJECT_ROOT,env:cfg.env,stdio:["pipe","pipe","pipe"],windowsHide:true});
+  }catch(e){send("error",`Gagal membuka shell lokal: ${e.message}`);ws.close();return;}
   send("status","connected");
-  send("output","Mobile Code Terminal — standalone workspace runtime\r\nType 'help' for commands.\r\n");
-  send("prompt",displayPath(state.cwd));
+  send("output",`Mobile Code — real local shell (${process.platform})\r\nWorking directory: ${PROJECT_ROOT}\r\n\r\n`);
+  send("prompt",displayPath(PROJECT_ROOT));
+  let stdoutBuffer="";
+  const emitChunk=(chunk)=>{
+    let value=chunk.toString("utf8");
+    if(process.platform!=="win32"){
+      value=value.replace(/__MCE_PROMPT__/g,"");
+    }
+    if(value)send("output",value);
+  };
+  child.stdout.on("data",emitChunk);
+  child.stderr.on("data",emitChunk);
+  child.on("error",e=>send("error",`Shell error: ${e.message}`));
+  child.on("close",(code,signal)=>{send("output",`\r\n[Shell exited: code=${code}, signal=${signal||"none"}]\r\n`);send("status","closed");send("prompt",displayPath(PROJECT_ROOT));});
   ws.on("message",raw=>{
     try{
       const msg=JSON.parse(raw.toString());
-      if(msg.type!=="command"||typeof msg.data!=="string")return;
-      const result=standaloneCommand(msg.data,state);
-      if(result.clear){send("clear");send("prompt",displayPath(state.cwd));return;}
-      if(result.out)send("output",result.out+"\r\n");
-      if(result.error)send("output",`Error: ${result.error}\r\n`);
-      send("prompt",displayPath(state.cwd));
-      if(result.exit){send("status","closed");ws.close();}
-    }catch(e){send("output",`Error: ${e.message}\r\n`);}
+      if(msg.type!=="command"||typeof msg.data!=="string"||!child||child.killed)return;
+      const data=msg.data;
+      if(data==="clear"){send("clear");return;}
+      if(data==="\u0003"){try{child.kill("SIGINT")}catch{};return;}
+      if(data==="exit"){child.stdin.end("exit\n");return;}
+      child.stdin.write(data+"\n");
+    }catch(e){send("output",`\r\n[Terminal error] ${e.message}\r\n`);}
   });
+  ws.on("close",()=>{if(child&&!child.killed){try{child.kill("SIGTERM")}catch{}}});
 });
 
 function startServer(port) {
